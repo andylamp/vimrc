@@ -3,12 +3,46 @@ if exists("g:loaded_nerdtree_autoload")
 endif
 let g:loaded_nerdtree_autoload = 1
 
-function! nerdtree#version()
-    return '5.0.0'
+let s:rootNERDTreePath = resolve(expand("<sfile>:p:h:h"))
+
+"FUNCTION: nerdtree#version(...) {{{1
+"  If any value is given as an argument, the entire line of text from the
+"  change log is shown for the current version; otherwise, only the version
+"  number is shown.
+function! nerdtree#version(...)
+    let l:text = 'Unknown'
+    try
+        let l:changelog = readfile(join([s:rootNERDTreePath, "CHANGELOG.md"], nerdtree#slash()))
+        let l:line = 0
+        while l:line <= len(l:changelog)
+            if l:changelog[l:line] =~ '\d\+\.\d\+'
+                let l:text = substitute(l:changelog[l:line], '.*\(\d\+.\d\+\).*', '\1', '')
+                let l:text .= substitute(l:changelog[l:line+1], '^.\{-}\(\.\d\+\).\{-}:\(.*\)', a:0>0 ? '\1:\2' : '\1', '')
+                break
+            endif
+            let l:line += 1
+        endwhile
+    catch
+    endtry
+    return l:text
 endfunction
 
 " SECTION: General Functions {{{1
 "============================================================
+
+"FUNCTION: nerdtree#slash() {{{2
+function! nerdtree#slash()
+
+    if nerdtree#runningWindows()
+        if exists('+shellslash') && &shellslash
+            return '/'
+        endif
+
+        return '\'
+    endif
+
+    return '/'
+endfunction
 
 "FUNCTION: nerdtree#and(x,y) {{{2
 " Implements and() function for Vim <= 7.2
@@ -24,7 +58,6 @@ function! nerdtree#and(x,y)
             if (l:x % 2) && (l:y % 2)
                 let l:result += float2nr(pow(2, l:n))
             endif
-            echomsg l:x . ", " . l:y . " => " l:result
             let l:x = float2nr(l:x / 2)
             let l:y = float2nr(l:y / 2)
             let l:n += 1
@@ -129,13 +162,13 @@ function! nerdtree#deprecated(func, ...)
     endif
 endfunction
 
-" FUNCTION: nerdtree#exec(cmd) {{{2
-" Same as :exec cmd but with eventignore set for the duration
-" to disable the autocommands used by NERDTree (BufEnter,
-" BufLeave and VimEnter)
-function! nerdtree#exec(cmd)
+" FUNCTION: nerdtree#exec(cmd, ignoreAll) {{{2
+" Same as :exec cmd but, if ignoreAll is TRUE, set eventignore=all for the duration
+function! nerdtree#exec(cmd, ignoreAll)
     let old_ei = &ei
-    set ei=BufEnter,BufLeave,VimEnter
+    if a:ignoreAll
+        set ei=all
+    endif
     exec a:cmd
     let &ei = old_ei
 endfunction
