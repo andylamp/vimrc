@@ -104,16 +104,11 @@ function! s:TreeDirNode.displayString()
     endfor
 
     " Select the appropriate open/closed status indicator symbol.
-    if l:cascade[-1].isOpen
-        let l:symbol = g:NERDTreeDirArrowCollapsible
-    else
-        let l:symbol = g:NERDTreeDirArrowExpandable
-    endif
-
+    let l:symbol = (l:cascade[-1].isOpen ? g:NERDTreeDirArrowCollapsible : g:NERDTreeDirArrowExpandable )
+    let l:symbol .= (g:NERDTreeDirArrowExpandable ==# '' ? '' : ' ')
     let l:flags = l:cascade[-1].path.flagSet.renderToString()
 
-    let l:result = l:symbol . ' ' . l:flags . l:label
-    return l:result
+    return l:symbol . l:flags . l:label
 endfunction
 
 " FUNCTION: TreeDirNode.findNode(path) {{{1
@@ -382,8 +377,14 @@ endfunction
 "  1. If cascaded, we don't know which dir is bookmarked or is a symlink.
 "  2. If the parent is a symlink or is bookmarked, you end up with unparsable
 "     text, and NERDTree cannot get the path of any child node.
+" Also, return false if this directory is the tree root, which should never be
+" part of a cascade.
 function! s:TreeDirNode.isCascadable()
     if g:NERDTreeCascadeSingleChildDir ==# 0
+        return 0
+    endif
+
+    if self.isRoot()
         return 0
     endif
 
@@ -430,6 +431,7 @@ function! s:TreeDirNode._initChildren(silent)
         endtry
     endfor
 
+    let g:NERDTreeOldSortOrder = g:NERDTreeSortOrder
     call self.sortChildren()
 
     call nerdtree#echo('')
