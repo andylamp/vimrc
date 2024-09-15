@@ -391,8 +391,8 @@ function! s:OnReady(
             \               'character': l:nearest_error.col - 1,
             \           },
             \           'end': {
-            \               'line': l:nearest_error.end_lnum - 1,
-            \               'character': l:nearest_error.end_col,
+            \               'line': get(l:nearest_error, 'end_lnum', 1) - 1,
+            \               'character': get(l:nearest_error, 'end_col', 0)
             \           },
             \       },
             \   },
@@ -457,7 +457,7 @@ function! s:ExecuteGetCodeFix(linter, range, MenuCallback) abort
         let [l:end_line, l:end_column] = getpos("'>")[1:2]
     endif
 
-    let l:column = min([l:column, len(getline(l:line))])
+    let l:column = max([min([l:column, len(getline(l:line))]), 1])
     let l:end_column = min([l:end_column, len(getline(l:end_line))])
 
     let l:Callback = function(
@@ -473,15 +473,9 @@ function! ale#codefix#Execute(range, ...) abort
     endif
 
     let l:MenuCallback = get(a:000, 0, v:null)
-    let l:lsp_linters = []
+    let l:linters = ale#lsp_linter#GetEnabled(bufnr(''))
 
-    for l:linter in ale#linter#Get(&filetype)
-        if !empty(l:linter.lsp)
-            call add(l:lsp_linters, l:linter)
-        endif
-    endfor
-
-    if empty(l:lsp_linters)
+    if empty(l:linters)
         if l:MenuCallback is v:null
             call s:message('No active LSPs')
         else
@@ -491,7 +485,7 @@ function! ale#codefix#Execute(range, ...) abort
         return
     endif
 
-    for l:lsp_linter in l:lsp_linters
-        call s:ExecuteGetCodeFix(l:lsp_linter, a:range, l:MenuCallback)
+    for l:linter in l:linters
+        call s:ExecuteGetCodeFix(l:linter, a:range, l:MenuCallback)
     endfor
 endfunction

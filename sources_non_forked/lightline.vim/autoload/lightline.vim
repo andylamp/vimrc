@@ -2,7 +2,7 @@
 " Filename: autoload/lightline.vim
 " Author: itchyny
 " License: MIT License
-" Last Change: 2020/11/21 14:03:29.
+" Last Change: 2021/11/21 22:54:46.
 " =============================================================================
 
 let s:save_cpo = &cpo
@@ -26,7 +26,11 @@ function! lightline#update() abort
   endif
 endfunction
 
-if exists('*win_gettype')
+if exists('*nvim_win_get_config')
+  function! s:skip() abort
+    return !nvim_win_get_config(0).focusable
+  endfunction
+elseif exists('*win_gettype')
   function! s:skip() abort " Vim 8.2.0257 (00f3b4e007), 8.2.0991 (0fe937fd86), 8.2.0996 (40a019f157)
     return win_gettype() ==# 'popup' || win_gettype() ==# 'autocmd'
   endfunction
@@ -47,7 +51,7 @@ function! lightline#enable() abort
   call lightline#update()
   augroup lightline
     autocmd!
-    autocmd WinEnter,BufEnter,BufDelete,SessionLoadPost,FileChangedShellPost * call lightline#update()
+    autocmd WinEnter,BufEnter,SessionLoadPost,FileChangedShellPost * call lightline#update()
     if !has('patch-8.1.1715')
       autocmd FileType qf call lightline#update()
     endif

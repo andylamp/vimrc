@@ -120,6 +120,18 @@
 
 ![lightline.vim - one_light](https://raw.githubusercontent.com/wiki/itchyny/lightline.vim/image/one_light.png)
 
+### rosepine (`background=dark`)
+
+![lightline.vim - rosepine_dark](https://raw.githubusercontent.com/wiki/itchyny/lightline.vim/image/rosepine_dark.png)
+
+### rosepine (`background=light`)
+
+![lightline.vim - rosepine_light](https://raw.githubusercontent.com/wiki/itchyny/lightline.vim/image/rosepine_light.png)
+
+### rosepine_moon
+
+![lightline.vim - rosepine_moon](https://raw.githubusercontent.com/wiki/itchyny/lightline.vim/image/rosepine_moon.png)
+
 ### srcery_drk
 
 ![lightline.vim - srcery_drk](https://raw.githubusercontent.com/wiki/itchyny/lightline.vim/image/srcery_drk.png)

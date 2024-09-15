@@ -2,7 +2,6 @@
 " Language:		Ruby
 " Maintainer:		Tim Pope <vimNOSPAM@tpope.org>
 " URL:			https://github.com/vim-ruby/vim-ruby
-" Release Coordinator:	Doug Kearns <dougkearns@gmail.com>
 
 if (exists("b:did_ftplugin"))
   finish
@@ -52,31 +51,45 @@ endif
 " TODO:
 "setlocal define=^\\s*def
 
-setlocal comments=:#
+setlocal comments=b:#
 setlocal commentstring=#\ %s
 
 if !exists('g:ruby_version_paths')
   let g:ruby_version_paths = {}
 endif
 
+let s:path_split = has('win32') ? ';' : ':'
+
 function! s:query_path(root) abort
-  let code = "print $:.join %q{,}"
-  if &shell =~# 'sh' && empty(&shellxquote)
-    let prefix = 'env PATH='.shellescape($PATH).' '
-  else
-    let prefix = ''
+  " Disabled by default for security reasons.
+  if !get(g:, 'ruby_exec', get(g:, 'plugin_exec', 0)) || empty(a:root)
+    return map(split($RUBYLIB, s:path_split), 'v:val ==# "." ? "" : v:val')
   endif
+  let code = "print $:.join %q{,}"
   if &shellxquote == "'"
-    let path_check = prefix.'ruby --disable-gems -e "' . code . '"'
+    let args = ' --disable-gems -e "' . code . '"'
   else
-    let path_check = prefix."ruby --disable-gems -e '" . code . "'"
+    let args = " --disable-gems -e '" . code . "'"
   endif
 
-  let cd = haslocaldir() ? 'lcd' : 'cd'
+  let cd = haslocaldir() ? 'lcd' : exists(':tcd') && haslocaldir(-1) ? 'tcd' : 'cd'
   let cwd = fnameescape(getcwd())
   try
     exe cd fnameescape(a:root)
-    let path = split(system(path_check),',')
+    for dir in split($PATH, s:path_split)
+      if dir !=# '.' && executable(dir . '/ruby') == 1
+	let exepath = dir . '/ruby'
+	break
+      endif
+    endfor
+    if exists('l:exepath')
+      let path = split(system(exepath . args),',')
+      if v:shell_error
+	let path = []
+      endif
+    else
+      let path = []
+    endif
     exe cd cwd
     return path
   finally
@@ -86,8 +99,14 @@ endfunction
 
 function! s:build_path(path) abort
   let path = join(map(copy(a:path), 'v:val ==# "." ? "" : v:val'), ',')
-  if &g:path !~# '\v^%(\.,)=%(/%(usr|emx)/include,)=,$'
-    let path = substitute(&g:path,',,$',',','') . ',' . path
+  if &g:path =~# '\v^%(\.,)=%(/%(usr|emx)/include,)=,$'
+    let path = path . ',.,,'
+  elseif &g:path =~# ',\.,,$'
+    let path = &g:path[0:-4] . path . ',.,,'
+  elseif &g:path =~# ',,$'
+    let path = &g:path[0:-2] . path . ',,'
+  else
+    let path = substitute(&g:path, '[^,]\zs$', ',', '') . path
   endif
   return path
 endfunction
@@ -111,10 +130,8 @@ else
   if !exists('g:ruby_default_path')
     if has("ruby") && has("win32")
       ruby ::VIM::command( 'let g:ruby_default_path = split("%s",",")' % $:.join(%q{,}) )
-    elseif executable('ruby') && !empty($HOME)
-      let g:ruby_default_path = s:query_path($HOME)
     else
-      let g:ruby_default_path = map(split($RUBYLIB,':'), 'v:val ==# "." ? "" : v:val')
+      let g:ruby_default_path = s:query_path($HOME)
     endif
   endif
   let s:ruby_paths = g:ruby_default_path
@@ -163,6 +180,8 @@ let b:undo_ftplugin .= "| sil! cunmap <buffer> <Plug><ctag>| sil! cunmap <buffer
 if !exists("g:no_plugin_maps") && !exists("g:no_ruby_maps")
   nmap <buffer><script> <SID>:  :<C-U>
   nmap <buffer><script> <SID>c: :<C-U><C-R>=v:count ? v:count : ''<CR>
+  cmap <buffer> <SID><cfile> <Plug><cfile>
+  cmap <buffer> <SID><ctag>  <Plug><ctag>
 
   nnoremap <silent> <buffer> [m :<C-U>call <SID>searchsyn('\<def\>',['rubyDefine'],'b','n')<CR>
   nnoremap <silent> <buffer> ]m :<C-U>call <SID>searchsyn('\<def\>',['rubyDefine'],'','n')<CR>
@@ -209,20 +228,20 @@ if !exists("g:no_plugin_maps") && !exists("g:no_ruby_maps")
   call s:map('c', '', '<C-R><C-F> <Plug><cfile>')
 
   cmap <buffer><script><expr> <SID>tagzv &foldopen =~# 'tag' ? '<Bar>norm! zv' : ''
-  call s:map('n', '<silent>', '<C-]>       <SID>:exe  v:count1."tag <Plug><ctag>"<SID>tagzv<CR>')
-  call s:map('n', '<silent>', 'g<C-]>      <SID>:exe         "tjump <Plug><ctag>"<SID>tagzv<CR>')
-  call s:map('n', '<silent>', 'g]          <SID>:exe       "tselect <Plug><ctag>"<SID>tagzv<CR>')
-  call s:map('n', '<silent>', '<C-W>]      <SID>:exe v:count1."stag <Plug><ctag>"<SID>tagzv<CR>')
-  call s:map('n', '<silent>', '<C-W><C-]>  <SID>:exe v:count1."stag <Plug><ctag>"<SID>tagzv<CR>')
-  call s:map('n', '<silent>', '<C-W>g<C-]> <SID>:exe        "stjump <Plug><ctag>"<SID>tagzv<CR>')
-  call s:map('n', '<silent>', '<C-W>g]     <SID>:exe      "stselect <Plug><ctag>"<SID>tagzv<CR>')
-  call s:map('n', '<silent>', '<C-W>}      <SID>:exe v:count1."ptag <Plug><ctag>"<CR>')
-  call s:map('n', '<silent>', '<C-W>g}     <SID>:exe        "ptjump <Plug><ctag>"<CR>')
+  call s:map('n', '<script><silent>', '<C-]>       <SID>:exe  v:count1."tag <SID><ctag>"<SID>tagzv<CR>')
+  call s:map('n', '<script><silent>', 'g<C-]>      <SID>:exe         "tjump <SID><ctag>"<SID>tagzv<CR>')
+  call s:map('n', '<script><silent>', 'g]          <SID>:exe       "tselect <SID><ctag>"<SID>tagzv<CR>')
+  call s:map('n', '<script><silent>', '<C-W>]      <SID>:exe v:count1."stag <SID><ctag>"<SID>tagzv<CR>')
+  call s:map('n', '<script><silent>', '<C-W><C-]>  <SID>:exe v:count1."stag <SID><ctag>"<SID>tagzv<CR>')
+  call s:map('n', '<script><silent>', '<C-W>g<C-]> <SID>:exe        "stjump <SID><ctag>"<SID>tagzv<CR>')
+  call s:map('n', '<script><silent>', '<C-W>g]     <SID>:exe      "stselect <SID><ctag>"<SID>tagzv<CR>')
+  call s:map('n', '<script><silent>', '<C-W>}      <SID>:exe v:count1."ptag <SID><ctag>"<CR>')
+  call s:map('n', '<script><silent>', '<C-W>g}     <SID>:exe        "ptjump <SID><ctag>"<CR>')
 
-  call s:map('n', '<silent>', 'gf           <SID>c:find <Plug><cfile><CR>')
-  call s:map('n', '<silent>', '<C-W>f      <SID>c:sfind <Plug><cfile><CR>')
-  call s:map('n', '<silent>', '<C-W><C-F>  <SID>c:sfind <Plug><cfile><CR>')
-  call s:map('n', '<silent>', '<C-W>gf   <SID>c:tabfind <Plug><cfile><CR>')
+  call s:map('n', '<script><silent>', 'gf           <SID>c:find <SID><cfile><CR>')
+  call s:map('n', '<script><silent>', '<C-W>f      <SID>c:sfind <SID><cfile><CR>')
+  call s:map('n', '<script><silent>', '<C-W><C-F>  <SID>c:sfind <SID><cfile><CR>')
+  call s:map('n', '<script><silent>', '<C-W>gf   <SID>c:tabfind <SID><cfile><CR>')
 endif
 
 let &cpo = s:cpo_save
